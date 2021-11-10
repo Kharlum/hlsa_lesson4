@@ -1,0 +1,60 @@
+networks:
+  l4:
+    driver: bridge
+    name: l4_stack
+
+volumes:
+  mongo.data:
+    name: mongo.data.l4
+  redis.data:
+    name: redis.data.l4
+
+services:
+  mongo:
+    container_name: mongo.l4
+    image: mongo:latest
+    networks:
+      l4:
+        aliases:
+          - mongo.local
+    ports:
+      - "27018:27017"
+    volumes:
+      - mongo.data:/data/db
+      - mongo.data:/data/configdb
+
+  redis:
+    container_name: redis
+    image: redis
+    build:
+      context: .
+      dockerfile: Dockerfile
+    networks:
+      l4:
+        aliases:
+          - redis.local
+    ports:
+      - "6801:6379"
+    environment:
+      - "REDIS_DISABLE_COMMANDS=FLUSHDB,FLUSHALL"
+    volumes:
+      - redis.data:/data
+
+  aspnetapp:
+    container_name: aspnetapp
+    image: aspnetapp:latest
+    build:
+      context: .
+      dockerfile: ./WebApplication/WebApplication/Dockerfile
+    environment:
+      - "Mongo__ConnectionString=mongodb://mongo.local:27017"
+      - "Redis__ConnectionString=redis.local:6379"
+    ports:
+      - '8889:80'
+    networks:
+      l4:
+        aliases:
+          - aspnetapp.local
+    links:
+      - mongo
+      - redis
